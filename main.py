@@ -106,13 +106,13 @@ def train_model(model, x_train, y_train):
         return "", model
 
     # path to save model weights after every 5*32 = 160 batch size
-    CHECKPOINT_PATH = "model_checkpoints/braille.ckpt"
-    checkpoint_dir = os.path.dirname(CHECKPOINT_PATH)
+    MODEL_CHECKPOINT_TEMP_PATH = "model_checkpoints_temp/braille.ckpt"
+    checkpoint_dir = os.path.dirname(MODEL_CHECKPOINT_TEMP_PATH)
     batch_size = 32
 
     # callback that save weights after every 5*32 = 160 batch size
     save_callback = tf.keras.callbacks.ModelCheckpoint(
-        filepath=CHECKPOINT_PATH,
+        filepath=MODEL_CHECKPOINT_TEMP_PATH,
         verbose=1,
         save_weights_only=True,
         save_freq=5*batch_size)
@@ -130,14 +130,17 @@ def train_model(model, x_train, y_train):
     # train model
     training_history = model.fit(x=x_train,
                                  y=y_train,
-                                 epochs=100,
+                                 epochs=1,
                                  validation_split=0.3,
                                  callbacks=[early_stopping_val_sparse_categorical_accuracy, early_stopping_val_loss, save_callback])
 
-    # save model
-    model.save(MODEL_PATH)
-
     # model.summary()
+
+    # save model if accuracy with validation data is greater than 0.9
+    if (training_history.history["val_sparse_categorical_accuracy"][0] >= 0.9):
+        # mean only good trained model is saved
+        model.save(MODEL_PATH)
+
     return training_history, model
 
 
@@ -195,7 +198,7 @@ def main():
     model = create_model()
     training_history, model = train_model(model, x_train, y_train)
     # plot_training_history(training_history)
-    evaluate_model(model, x_test, y_test, class_names)
+    # evaluate_model(model, x_test, y_test, class_names)
 
 
 main()
