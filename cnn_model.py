@@ -20,27 +20,27 @@ class CNNModel:
         images_path_list = list(image_dir.glob('*.jpg'))
 
         # get file names which act as english word for braille image
-        self.__names_list = [image_path.name[0]
+        self.__labels_list = [image_path.name[0]
                              for image_path in images_path_list]
 
         # convert images into arrays of images
         images = [cv2.imread(str(dir)) for dir in images_path_list]
         # convert images to 0's and 1's
         self.__images_list = np.array(images) / 255.0
-        self.__names_list = np.array(self.__names_list)
+        self.__labels_list = np.array(self.__labels_list)
 
     def prepare_data(self):
         # convert each alphabet character to numerical value. for example a,b,c to 0,1,2
         label_encoder = LabelEncoder()
         # numerical values
-        encoded_labels = label_encoder.fit_transform(self.__names_list)
+        encoded_labels = label_encoder.fit_transform(self.__labels_list)
     
         # split data into train set for training the model and test set for testing the model
         self.__x_train, self.__x_test, self.__y_train, self.__y_test = train_test_split(
             self.__images_list, encoded_labels, test_size=0.2, random_state=42)
-        
-        self.__classes_names = label_encoder.classes_
-            
+                
+        self.__label_classes_names = label_encoder.classes_
+   
     def build_model_layers(self):
         self.__model = keras.Sequential([
             keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', strides=(
@@ -127,21 +127,32 @@ class CNNModel:
         print('Accuracy', test_acc)
 
     def test_model(self):
-       # predict one random image
-        index_image = randrange(312)
+        # predict one random image
+        image_dir = Path('test_dataset')
+        image_path= list(image_dir.glob('*.png'))[0]
+        
+        # preprocess the image
+        image = cv2.imread(str(image_path))
+        image = cv2.resize(image, (28, 28))        
+        image = np.array(image) / 255.0
+        
+        name ="h"
+        
         prediction_scores = self.__model.predict(
-            np.expand_dims(self.__x_test[index_image], axis=0))
+            np.expand_dims(image, axis=0))
 
         # get most matched alphabet index
         predicted_index = np.argmax(prediction_scores)
-
-        #show image
-        plt.imshow(self.__x_test[index_image])
-        plt.show()
-
+       
         #print predictions
         print("score: ", prediction_scores)
-        print("Predicted label: " + self.__classes_names[predicted_index])
+        print("Original label: " + name)
+        print("Predicted label: " + self.__label_classes_names[predicted_index])
+        
+        #show image
+        # plt.imshow(image)
+        # plt.show()
+
 
     def plot_training_history(self):
         if (self.__training_history is None):
@@ -179,5 +190,5 @@ class CNNModel:
             plt.yticks([])
             plt.grid(False)
             plt.imshow(self.__x_train[i])
-            plt.xlabel(self.__names_list[self.__y_train[i]])
+            plt.xlabel(self.__labels_list[self.__y_train[i]])
         plt.show()
