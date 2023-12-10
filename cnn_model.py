@@ -37,10 +37,10 @@ class CNNModel:
         images_path_list = list(image_dir.glob('*.jpg'))
 
         # get file names which act as english word for braille image
-        self.labels_list = [image_path.name[0]
+        self._labels_list = [image_path.name[0]
                              for image_path in images_path_list]
 
-        # convert images into arrays of images
+        # convert colorful images into arrays of images
         images = [cv2.imread(str(dir)) for dir in images_path_list]
         
         # match image size and shape with model input size and shape required
@@ -51,18 +51,18 @@ class CNNModel:
             resize_images.append(cv2.resize(image, (28, 28)))
 
         # convert images to 0's and 1's
-        self.images_list = np.array(images) / 255.0
-        self.labels_list = np.array(self.labels_list)
+        self._images_list = np.array(images) / 255.0
+        self._labels_list = np.array(self._labels_list)
 
     def _prepare_data(self):
         # convert each alphabet character to numerical value. for example a,b,c to 0,1,2
         label_encoder = LabelEncoder()
         # numerical values
-        encoded_labels = label_encoder.fit_transform(self.labels_list)
+        encoded_labels = label_encoder.fit_transform(self._labels_list)
     
         # split data into train set for training the model and test set for testing the model
         self.__x_train, self.__x_test, self.__y_train, self.__y_test = train_test_split(
-            self.images_list, encoded_labels, test_size=0.2, random_state=42)
+            self._images_list, encoded_labels, test_size=0.2, random_state=42)
                    
     def _build_model_layers(self):
         self._model = keras.Sequential([
@@ -215,5 +215,5 @@ class CNNModel:
             plt.yticks([])
             plt.grid(False)
             plt.imshow(self.__x_train[i])
-            plt.xlabel(self.labels_list[self.__y_train[i]])
+            plt.xlabel(self._labels_list[self.__y_train[i]])
         plt.show()
