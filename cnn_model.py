@@ -15,31 +15,44 @@ from keras.models import load_model
 
 class CNNModel:
 
+    def __init__(self):
+        self.KAGGLE_DATASET_PATH ="dataset/kaggle_dataset"
+        self.TEST_DATASET_PATH ="dataset/test_dataset"
+        self.MODEL_CHECKPOINT_TEMP_PATH = "model_checkpoints_temp/braille.ckpt"
+        self.MODEL_PATH = 'trained_model/cnn_model.h5'
+
+
     def load_images(self):
-        image_dir = Path('dataset')
+        image_dir = Path(self.KAGGLE_DATASET_PATH)
         images_path_list = list(image_dir.glob('*.jpg'))
 
         # get file names which act as english word for braille image
-        self.__labels_list = [image_path.name[0]
+        self.labels_list = [image_path.name[0]
                              for image_path in images_path_list]
 
         # convert images into arrays of images
         images = [cv2.imread(str(dir)) for dir in images_path_list]
+        
+        # match image size and shape with model input size and shape required
+        resize_images = []
+        for image in images:
+            resize_images.append(cv2.resize(image, (28, 28)))
+
         # convert images to 0's and 1's
-        self.__images_list = np.array(images) / 255.0
-        self.__labels_list = np.array(self.__labels_list)
+        self.images_list = np.array(images) / 255.0
+        self.labels_list = np.array(self.labels_list)
 
     def prepare_data(self):
         # convert each alphabet character to numerical value. for example a,b,c to 0,1,2
         label_encoder = LabelEncoder()
         # numerical values
-        encoded_labels = label_encoder.fit_transform(self.__labels_list)
+        encoded_labels = label_encoder.fit_transform(self.labels_list)
     
         # split data into train set for training the model and test set for testing the model
         self.__x_train, self.__x_test, self.__y_train, self.__y_test = train_test_split(
-            self.__images_list, encoded_labels, test_size=0.2, random_state=42)
+            self.images_list, encoded_labels, test_size=0.2, random_state=42)
                 
-        self.__label_classes_names = label_encoder.classes_
+        self.label_classes_names = label_encoder.classes_
    
     def build_model_layers(self):
         self.__model = keras.Sequential([
@@ -74,22 +87,18 @@ class CNNModel:
         ])
 
     def train_model(self):
-        # path to save and retrieve model
-        MODEL_PATH = 'trained_model/cnn_model.h5'
-
         # model already exists
-        if os.path.exists(MODEL_PATH):
+        if os.path.exists(self.MODEL_PATH):
             # return with already existing model
-            self.__model = load_model(MODEL_PATH)
+            self.__model = load_model(self.MODEL_PATH)
             return
 
         # path to save model weights after every 5*32 = 160 batch size
-        MODEL_CHECKPOINT_TEMP_PATH = "model_checkpoints_temp/braille.ckpt"
         batch_size = 32
 
         # callback that save weights after every 5*32 = 160 batch size
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            filepath=MODEL_CHECKPOINT_TEMP_PATH,
+            filepath=self.MODEL_CHECKPOINT_TEMP_PATH,
             verbose=1,
             save_weights_only=True,
             save_freq=5*batch_size)
@@ -114,7 +123,7 @@ class CNNModel:
         # model.summary()
 
         # save model in file
-        self.__model.save(MODEL_PATH)
+        self.__model.save(self.MODEL_PATH)
 
     def evaluate_model(self):
         if(self.__model is None):
@@ -128,26 +137,26 @@ class CNNModel:
 
     def test_model(self):
         # predict one random image
-        image_dir = Path('test_dataset')
-        image_path= list(image_dir.glob('*.png'))[0]
-        
-        # preprocess the image
-        image = cv2.imread(str(image_path))
-        image = cv2.resize(image, (28, 28))        
-        image = np.array(image) / 255.0
-        
-        name ="h"
-        
-        prediction_scores = self.__model.predict(
-            np.expand_dims(image, axis=0))
+        image_dir = Path(self.TEST_DATASET_PATH)
+        image_path_list= list(image_dir.glob('*.jpg'))
+        for image_path in image_path_list:
+            # preprocess the image
+            image = cv2.imread(str(image_path))
+            image = cv2.resize(image, (28, 28))        
+            image = np.array(image) / 255.0
+                        
+            original_label = image_path.name[0]
+            
+            prediction_scores = self.__model.predict(
+                np.expand_dims(image, axis=0))
 
-        # get most matched alphabet index
-        predicted_index = np.argmax(prediction_scores)
-       
-        #print predictions
-        print("score: ", prediction_scores)
-        print("Original label: " + name)
-        print("Predicted label: " + self.__label_classes_names[predicted_index])
+            # get most matched alphabet index
+            predicted_index = np.argmax(prediction_scores)
+        
+            #print predictions
+            # print("score: ", prediction_scores)
+            print("Original label: " + original_label)
+            print("Predicted label: " + self.label_classes_names[predicted_index])
         
         #show image
         # plt.imshow(image)
@@ -190,5 +199,5 @@ class CNNModel:
             plt.yticks([])
             plt.grid(False)
             plt.imshow(self.__x_train[i])
-            plt.xlabel(self.__labels_list[self.__y_train[i]])
+            plt.xlabel(self.labels_list[self.__y_train[i]])
         plt.show()
