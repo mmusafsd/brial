@@ -16,14 +16,24 @@ from keras.models import load_model
 class CNNModel:
 
     def __init__(self):
-        self.KAGGLE_DATASET_PATH ="dataset/kaggle_dataset"
-        self.TEST_DATASET_PATH ="dataset/test_dataset"
-        self.MODEL_CHECKPOINT_TEMP_PATH = "model_checkpoints_temp/braille.ckpt"
-        self.MODEL_PATH = 'trained_model/cnn_model.h5'
+        self._KAGGLE_DATASET_PATH ="dataset/kaggle_dataset"
+        self._TEST_DATASET_PATH ="dataset/test_dataset"
+        self._MODEL_CHECKPOINT_TEMP_PATH = "model_checkpoints_temp/braille.ckpt"
+        self._MODEL_PATH = 'trained_model/cnn_model.h5'
+        self._model = None
+        self._label_class_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 
+                    'h', 'i', 'j', 'k', 'l', 'm', 'n', 
+                    'o', 'p', 'q', 'r', 's', 't', 'u', 
+                    'v', 'w', 'x', 'y', 'z']
 
 
-    def load_images(self):
-        image_dir = Path(self.KAGGLE_DATASET_PATH)
+    def load_model(self):
+        if(os.path.exists(self._MODEL_PATH)):
+            # already existing model
+            self._model= load_model(self._MODEL_PATH)
+
+    def _load_images(self):
+        image_dir = Path(self._KAGGLE_DATASET_PATH)
         images_path_list = list(image_dir.glob('*.jpg'))
 
         # get file names which act as english word for braille image
@@ -36,13 +46,15 @@ class CNNModel:
         # match image size and shape with model input size and shape required
         resize_images = []
         for image in images:
+            # convert color image to gray scale
+            # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             resize_images.append(cv2.resize(image, (28, 28)))
 
         # convert images to 0's and 1's
         self.images_list = np.array(images) / 255.0
         self.labels_list = np.array(self.labels_list)
 
-    def prepare_data(self):
+    def _prepare_data(self):
         # convert each alphabet character to numerical value. for example a,b,c to 0,1,2
         label_encoder = LabelEncoder()
         # numerical values
@@ -51,11 +63,9 @@ class CNNModel:
         # split data into train set for training the model and test set for testing the model
         self.__x_train, self.__x_test, self.__y_train, self.__y_test = train_test_split(
             self.images_list, encoded_labels, test_size=0.2, random_state=42)
-                
-        self.label_classes_names = label_encoder.classes_
-   
-    def build_model_layers(self):
-        self.__model = keras.Sequential([
+                   
+    def _build_model_layers(self):
+        self._model = keras.Sequential([
             keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', strides=(
                 1, 1), activation='relu', input_shape=(28, 28, 3)),
             keras.layers.MaxPooling2D(pool_size=(2, 2)),
@@ -86,25 +96,19 @@ class CNNModel:
 
         ])
 
-    def train_model(self):
-        # model already exists
-        if os.path.exists(self.MODEL_PATH):
-            # return with already existing model
-            self.__model = load_model(self.MODEL_PATH)
-            return
-
+    def _build_model(self):
         # path to save model weights after every 5*32 = 160 batch size
         batch_size = 32
 
         # callback that save weights after every 5*32 = 160 batch size
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            filepath=self.MODEL_CHECKPOINT_TEMP_PATH,
+            filepath=self._MODEL_CHECKPOINT_TEMP_PATH,
             verbose=1,
             save_weights_only=True,
             save_freq=5*batch_size)
 
         # compile model with configuration
-        self.__model.compile(optimizer="Adam", loss="SparseCategoricalCrossentropy",
+        self._model.compile(optimizer="Adam", loss="SparseCategoricalCrossentropy",
                       metrics=["sparse_categorical_accuracy"])
 
         # stop training process if there is no improvement in the monitored metrics for 20 consecutive epochs.
@@ -114,7 +118,7 @@ class CNNModel:
             patience=20, monitor="val_loss", mode="auto")
 
         # train model
-        self.__training_history = self.__model.fit(x=self.__x_train,
+        self.__training_history = self._model.fit(x=self.__x_train,
                                      y=self.__y_train,
                                      epochs=100,
                                      validation_split=0.3,
@@ -123,31 +127,44 @@ class CNNModel:
         # model.summary()
 
         # save model in file
-        self.__model.save(self.MODEL_PATH)
+        self._model.save(self._MODEL_PATH)
 
+    def train_model(self):
+        self._load_images()
+        self._prepare_data()
+        self._build_model_layers()
+        self._build_model()
+        
     def evaluate_model(self):
-        if(self.__model is None):
+        if(self._model is None):
             print("No model to evaluate")
             return
         
         # evaluate trained model using test data
-        test_loss, test_acc = self.__model.evaluate(self.__x_test, self.__y_test)
+        test_loss, test_acc = self._model.evaluate(self.__x_test, self.__y_test)
         print('Loss', test_loss)
         print('Accuracy', test_acc)
 
     def test_model(self):
-        # predict one random image
-        image_dir = Path(self.TEST_DATASET_PATH)
-        image_path_list= list(image_dir.glob('*.jpg'))
+        if(self._model is None):
+            print("No model is found.")
+            return
+        
+        image_dir = Path(self._TEST_DATASET_PATH)
+        image_path_list= list(image_dir.glob('*'))
         for image_path in image_path_list:
             # preprocess the image
             image = cv2.imread(str(image_path))
+            
+            # convert color image to gray scale
+            # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
             image = cv2.resize(image, (28, 28))        
             image = np.array(image) / 255.0
                         
             original_label = image_path.name[0]
             
-            prediction_scores = self.__model.predict(
+            prediction_scores = self._model.predict(
                 np.expand_dims(image, axis=0))
 
             # get most matched alphabet index
@@ -156,7 +173,7 @@ class CNNModel:
             #print predictions
             # print("score: ", prediction_scores)
             print("Original label: " + original_label)
-            print("Predicted label: " + self.label_classes_names[predicted_index])
+            print("Predicted label: " + self._label_class_names[predicted_index])
         
         #show image
         # plt.imshow(image)
@@ -164,6 +181,9 @@ class CNNModel:
 
 
     def plot_training_history(self):
+        if(self._model is None):
+            print("No model is found.")
+            return
         if (self.__training_history is None):
             print("No model training is performed. Cannot plot model training history")
             return
@@ -187,10 +207,6 @@ class CNNModel:
         plt.show()
         
     def plot_30_train_images_with_labels(self):
-        # class_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 
-        #             'h', 'i', 'j', 'k', 'l', 'm', 'n', 
-        #             'o', 'p', 'q', 'r', 's', 't', 'u', 
-        #             'v', 'w', 'x', 'y', 'z']
 
         plt.figure(figsize=(10,10))
         for i in range(30):
