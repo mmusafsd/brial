@@ -13,24 +13,24 @@ from keras.callbacks import EarlyStopping
 from random import randrange
 from keras.models import load_model
 
+
 class CNNModel:
 
     def __init__(self):
-        self._KAGGLE_DATASET_PATH ="dataset/kaggle_dataset"
-        self._TEST_DATASET_PATH ="dataset/test_dataset"
+        self._KAGGLE_DATASET_PATH = "dataset/kaggle_dataset"
+        self._TEST_DATASET_PATH = "dataset/test_dataset"
         self._MODEL_CHECKPOINT_TEMP_PATH = "model_checkpoints_temp/braille.ckpt"
         self._MODEL_PATH = 'trained_model/cnn_model.h5'
         self._model = None
-        self._label_class_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 
-                    'h', 'i', 'j', 'k', 'l', 'm', 'n', 
-                    'o', 'p', 'q', 'r', 's', 't', 'u', 
-                    'v', 'w', 'x', 'y', 'z']
-
+        self._label_class_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g',
+                                   'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                   'o', 'p', 'q', 'r', 's', 't', 'u',
+                                   'v', 'w', 'x', 'y', 'z']
 
     def load_model(self):
-        if(os.path.exists(self._MODEL_PATH)):
+        if (os.path.exists(self._MODEL_PATH)):
             # already existing model
-            self._model= load_model(self._MODEL_PATH)
+            self._model = load_model(self._MODEL_PATH)
 
     def _load_images(self):
         image_dir = Path(self._KAGGLE_DATASET_PATH)
@@ -42,7 +42,7 @@ class CNNModel:
 
         # convert colorful images into arrays of images
         images = [cv2.imread(str(dir)) for dir in images_path_list]
-        
+
         # match image size and shape with model input size and shape required
         resize_images = []
         for image in images:
@@ -59,11 +59,11 @@ class CNNModel:
         label_encoder = LabelEncoder()
         # numerical values
         encoded_labels = label_encoder.fit_transform(self._labels_list)
-    
+
         # split data into train set for training the model and test set for testing the model
         self.__x_train, self.__x_test, self.__y_train, self.__y_test = train_test_split(
             self._images_list, encoded_labels, test_size=0.2, random_state=42)
-                   
+
     def _build_model_layers(self):
         self._model = keras.Sequential([
             keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', strides=(
@@ -71,22 +71,21 @@ class CNNModel:
             keras.layers.MaxPooling2D(pool_size=(2, 2)),
             keras.layers.BatchNormalization(),
 
-            keras.layers.Conv2D(filters=128, kernel_size=(
-                3, 3), padding='same', strides=(1, 1), activation='relu'),
+            keras.layers.Conv2D(filters=128, kernel_size=(3, 3), padding='same',
+                                strides=(1, 1), activation='relu'),
             keras.layers.MaxPooling2D(pool_size=(2, 2)),
-            keras.layers.Dropout(0.2, input_shape=(28, 1)),
             keras.layers.BatchNormalization(),
 
-            keras.layers.Conv2D(filters=256, kernel_size=(
-                3, 3), padding='same', strides=(1, 1), activation='relu'),
+
+            keras.layers.Conv2D(filters=256, kernel_size=(3, 3), padding='same',
+                                strides=(1, 1), activation='relu'),
             keras.layers.MaxPooling2D(pool_size=(2, 2)),
-            keras.layers.Dropout(0.25, input_shape=(28, 1)),
             keras.layers.BatchNormalization(),
 
             keras.layers.Flatten(),
 
             keras.layers.Dense(units=512, activation="relu"),
-            keras.layers.Dropout(0.5, input_shape=(28, 1)),
+            keras.layers.Dropout(0.5),
             keras.layers.BatchNormalization(),
 
             keras.layers.Dense(units=288, activation="relu"),
@@ -109,7 +108,7 @@ class CNNModel:
 
         # compile model with configuration
         self._model.compile(optimizer="Adam", loss="SparseCategoricalCrossentropy",
-                      metrics=["sparse_categorical_accuracy"])
+                            metrics=["sparse_categorical_accuracy"])
 
         # stop training process if there is no improvement in the monitored metrics for 20 consecutive epochs.
         early_stopping_val_sparse_categorical_accuracy = EarlyStopping(
@@ -119,10 +118,10 @@ class CNNModel:
 
         # train model
         self.__training_history = self._model.fit(x=self.__x_train,
-                                     y=self.__y_train,
-                                     epochs=100,
-                                     validation_split=0.3,
-                                     callbacks=[early_stopping_val_sparse_categorical_accuracy, early_stopping_val_loss, save_callback])
+                                                  y=self.__y_train,
+                                                  epochs=100,
+                                                  validation_split=0.3,
+                                                  callbacks=[early_stopping_val_sparse_categorical_accuracy, early_stopping_val_loss, save_callback])
 
         # model.summary()
 
@@ -134,54 +133,55 @@ class CNNModel:
         self._prepare_data()
         self._build_model_layers()
         self._build_model()
-        
+
     def evaluate_model(self):
-        if(self._model is None):
+        if (self._model is None):
             print("No model to evaluate")
             return
-        
+
         # evaluate trained model using test data
-        test_loss, test_acc = self._model.evaluate(self.__x_test, self.__y_test)
+        test_loss, test_acc = self._model.evaluate(
+            self.__x_test, self.__y_test)
         print('Loss', test_loss)
         print('Accuracy', test_acc)
 
     def test_model(self):
-        if(self._model is None):
+        if (self._model is None):
             print("No model is found.")
             return
-        
+
         image_dir = Path(self._TEST_DATASET_PATH)
-        image_path_list= list(image_dir.glob('*'))
+        image_path_list = list(image_dir.glob('*'))
         for image_path in image_path_list:
             # preprocess the image
             image = cv2.imread(str(image_path))
-            
+
             # convert color image to gray scale
             # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            image = cv2.resize(image, (28, 28))        
+
+            image = cv2.resize(image, (28, 28))
             image = np.array(image) / 255.0
-                        
+
             original_label = image_path.name[0]
-            
+
             prediction_scores = self._model.predict(
                 np.expand_dims(image, axis=0))
 
             # get most matched alphabet index
             predicted_index = np.argmax(prediction_scores)
-        
-            #print predictions
+
+            # print predictions
             # print("score: ", prediction_scores)
             print("Original label: " + original_label)
-            print("Predicted label: " + self._label_class_names[predicted_index])
-        
-        #show image
+            print("Predicted label: " +
+                  self._label_class_names[predicted_index])
+
+        # show image
         # plt.imshow(image)
         # plt.show()
 
-
     def plot_training_history(self):
-        if(self._model is None):
+        if (self._model is None):
             print("No model is found.")
             return
         if (self.__training_history is None):
@@ -192,7 +192,8 @@ class CNNModel:
 
         # Loss Fitting History Plot
         sns.lineplot(data=self.__training_history.history, x=time, y='loss')
-        sns.lineplot(data=self.__training_history.history, x=time, y='val_loss')
+        sns.lineplot(data=self.__training_history.history,
+                     x=time, y='val_loss')
         plt.title('Loss fitting history')
         plt.legend(labels=['Loss', 'Validation Loss'])
         plt.show()
@@ -205,12 +206,12 @@ class CNNModel:
         plt.title('Accuracy fitting history')
         plt.legend(labels=['Accuracy', 'Validation Accuracy'])
         plt.show()
-        
+
     def plot_30_train_images_with_labels(self):
 
-        plt.figure(figsize=(10,10))
+        plt.figure(figsize=(10, 10))
         for i in range(30):
-            plt.subplot(6,5,i+1)
+            plt.subplot(6, 5, i+1)
             plt.xticks([])
             plt.yticks([])
             plt.grid(False)
