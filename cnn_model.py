@@ -28,6 +28,11 @@ class CNNModel:
                                    'v', 'w', 'x', 'y', 'z']
 
     def load_model(self):
+        self._load_images()
+        self._prepare_data()
+        self._load_model()
+
+    def _load_model(self):
         if (os.path.exists(self._MODEL_PATH)):
             # already existing model
             self._model = load_model(self._MODEL_PATH)
@@ -51,7 +56,7 @@ class CNNModel:
             resize_images.append(cv2.resize(image, (28, 28)))
 
         # convert images to 0's and 1's
-        self._images_list = np.array(images) / 255.0
+        self._images_list = np.array(resize_images) / 255.0
         self._labels_list = np.array(self._labels_list)
 
     def _prepare_data(self):
@@ -107,12 +112,12 @@ class CNNModel:
             save_freq=5*batch_size)
 
         # compile model with configuration
-        self._model.compile(optimizer="Adam", loss="SparseCategoricalCrossentropy",
-                            metrics=["sparse_categorical_accuracy"])
+        self._model.compile(optimizer="adam", loss="SparseCategoricalCrossentropy",
+                            metrics=["accuracy"])
 
         # stop training process if there is no improvement in the monitored metrics for 20 consecutive epochs.
         early_stopping_val_sparse_categorical_accuracy = EarlyStopping(
-            patience=20, monitor="val_sparse_categorical_accuracy", mode="auto")
+            patience=20, monitor="val_accuracy", mode="auto")
         early_stopping_val_loss = EarlyStopping(
             patience=20, monitor="val_loss", mode="auto")
 
@@ -152,6 +157,9 @@ class CNNModel:
 
         image_dir = Path(self._TEST_DATASET_PATH)
         image_path_list = list(image_dir.glob('*'))
+
+        total_predictions = len(image_path_list)
+        total_no_of_correct_predictions = 0
         for image_path in image_path_list:
             # preprocess the image
             image = cv2.imread(str(image_path))
@@ -170,11 +178,27 @@ class CNNModel:
             # get most matched alphabet index
             predicted_index = np.argmax(prediction_scores)
 
+            # get predicated label
+            predicted_label = self._label_class_names[predicted_index]
+            
+            # count the number of correct predictions
+            if original_label == predicted_label:
+                total_no_of_correct_predictions += 1
             # print predictions
             # print("score: ", prediction_scores)
             print("Original label: " + original_label)
-            print("Predicted label: " +
-                  self._label_class_names[predicted_index])
+            print("Predicted label: " + predicted_label)
+
+        # calculate predictions success percentage
+        total_correct_predications_percentage = (
+            total_no_of_correct_predictions / total_predictions) * 100
+        total_correct_predications_percentage = round(total_correct_predications_percentage,2)
+        
+        # print total predications detail
+        print("Total Predictions: ", total_predictions)
+        print("Total Correct Predictions: ", total_no_of_correct_predictions)
+        print("Total Correct Predictions Percentage(%): " +
+              str(total_correct_predications_percentage)+"%")
 
         # show image
         # plt.imshow(image)
