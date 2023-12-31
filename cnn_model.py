@@ -1,5 +1,6 @@
 from pathlib import Path
 import numpy as np
+from keras import regularizers
 import pandas as pd
 import os
 import cv2
@@ -70,10 +71,18 @@ class CNNModel:
         self.__x_train, self.__x_test, self.__y_train, self.__y_test = train_test_split(
             self._images_list, encoded_labels, test_size=0.2, random_state=42)
 
+    def _remove_outliers(self):
+        Q1 = np.percentile(self._images_list, 25, axis=0)
+        Q3 = np.percentile(self._images_list, 75, axis=0)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        return self._images_list[(self._images_list >= lower_bound) & (self._images_list <= upper_bound)]
+    
     def _build_model_layers(self):
         self._model = keras.Sequential([
             keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', strides=(
-                1, 1), activation='relu', input_shape=(28, 28, 3)),
+                1, 1), activation='relu', input_shape=(28, 28, 1)),
             keras.layers.MaxPooling2D(pool_size=(2, 2)),
             keras.layers.BatchNormalization(),
 
@@ -90,11 +99,11 @@ class CNNModel:
 
             keras.layers.Flatten(),
 
-            keras.layers.Dense(units=512, activation="relu"),
+            keras.layers.Dense(units=512, activation="relu",kernel_regularizer=regularizers.l2(0.01)),
             keras.layers.Dropout(0.5),
             keras.layers.BatchNormalization(),
 
-            keras.layers.Dense(units=288, activation="relu"),
+            keras.layers.Dense(units=288, activation="relu",kernel_regularizer=regularizers.l2(0.01)),
 
             # units=26 mean number of output classes. Each alphabet is one unit or one class
             keras.layers.Dense(units=26, activation="softmax")
@@ -114,11 +123,11 @@ class CNNModel:
 
         # compile model with configuration
         self._model.compile(optimizer="adam", loss="SparseCategoricalCrossentropy",
-                            metrics=["accuracy"])
+                            metrics=["sparse_categorical_accuracy"])
 
         # stop training process if there is no improvement in the monitored metrics for 20 consecutive epochs.
         early_stopping_val_sparse_categorical_accuracy = EarlyStopping(
-            patience=20, monitor="val_accuracy", mode="auto")
+            patience=20, monitor="val_sparse_categorical_accuracy", mode="auto")
         early_stopping_val_loss = EarlyStopping(
             patience=20, monitor="val_loss", mode="auto")
 
