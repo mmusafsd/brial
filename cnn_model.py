@@ -46,20 +46,21 @@ class CNNModel:
                              for image_path in images_path_list]
 
         # convert colorful images into arrays of images
-        images = [cv2.imread(str(dir)) for dir in images_path_list]
+        self._images = [cv2.imread(str(dir)) for dir in images_path_list]
 
+    def _prepare_data(self):
         # match image size and shape with model input size and shape required
         resize_images = []
-        for image in images:
+        for image in self._images:
             # convert color image to gray scale
-            # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            # resize image to fit model input size
             resize_images.append(cv2.resize(image, (28, 28)))
 
         # convert images to 0's and 1's
         self._images_list = np.array(resize_images) / 255.0
-        self._labels_list = np.array(self._labels_list)
 
-    def _prepare_data(self):
         # convert each alphabet character to numerical value. for example a,b,c to 0,1,2
         label_encoder = LabelEncoder()
         # numerical values
@@ -167,7 +168,10 @@ class CNNModel:
             # convert color image to gray scale
             # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+            # resize image to fit model
             image = cv2.resize(image, (28, 28))
+
+            # convert images to 0's and 1's
             image = np.array(image) / 255.0
 
             original_label = image_path.name[0]
@@ -180,7 +184,7 @@ class CNNModel:
 
             # get predicated label
             predicted_label = self._label_class_names[predicted_index]
-            
+
             # count the number of correct predictions
             if original_label == predicted_label:
                 total_no_of_correct_predictions += 1
@@ -192,8 +196,9 @@ class CNNModel:
         # calculate predictions success percentage
         total_correct_predications_percentage = (
             total_no_of_correct_predictions / total_predictions) * 100
-        total_correct_predications_percentage = round(total_correct_predications_percentage,2)
-        
+        total_correct_predications_percentage = round(
+            total_correct_predications_percentage, 2)
+
         # print total predications detail
         print("Total Predictions: ", total_predictions)
         print("Total Correct Predictions: ", total_no_of_correct_predictions)
